@@ -21,7 +21,7 @@ void sequentialSort (int N, keytype* A);
  *  output overwrites the input array. This is the routine YOU will
  *  implement; see 'parallel-qsort.cc' and 'parallel-mergesort.cc'.
  */
-void mySort (int N, keytype* A);
+void mySort (int N, keytype* A,keytype*B);
 
 /** Returns a new uninitialized array of length N */
 keytype* newKeys (int N);
