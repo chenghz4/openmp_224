@@ -37,16 +37,7 @@ int partition_short (keytype pivot, int N, keytype* A)
   }
   return k;
 }
-/**
- *   Given a pivot value, this routine partitions a given input array
- *   into two sets: the set A_le, which consists of all elements less
- *   than or equal to the pivot, and the set A_gt, which consists of
- *   all elements strictly greater than the pivot.
- *      
- *   This routine overwrites the original input array with the
- *   partitioned output. It also returns the index n_le such that
- *   (A[0:(k-1)] == A_le) and (A[k:(N-1)] == A_gt).
- */
+
 int partition (keytype pivot, int N, keytype* A,keytype *B)
 {
   int k = 0;
@@ -55,83 +46,61 @@ int partition (keytype pivot, int N, keytype* A,keytype *B)
   if(N<=10000) k=partition_short(pivot,N,A);
 
   else{
-   
-    //keytype* B = newKeys (N);;
     int number=floor(N/G);
     int ss=N-(number-1)*G;
     int flag[number];
     int flag_fix[number];
     int flag_fix_big[number];
-   // #pragma omp taskgroup
-    //{
+   
     #pragma omp taskloop shared (flag,A)
-    for (int j = 0; j<number; ++j) {
-      if(j==number-1) flag[j]=partition_short(pivot,ss,A+j*G);
-      else flag[j]=partition_short(pivot,G,A+j*G);
+    for (int j = 0; j<number-1; ++j) {
+     
+      flag[j]=partition_short(pivot,G,A+j*G);
     }
+    flag[number-1]=partition_short(pivot,ss,A+(number-1)*G);
 
 
-   // #pragma omp taskwait
-    //}
-
-    for(int j=0;j<number;j++){
-      if(j==0) flag_fix[j]=flag[0];
-      else flag_fix[j]=flag_fix[j-1]+flag[j];
+/////////sequencial///////////////////////////////
+    flag_fix[0]=flag[0];
+    for(int j=1;j<number;j++){
+      flag_fix[j]=flag_fix[j-1]+flag[j];
     }
     k=flag_fix[number-1];
 
     
-    for(int j=0;j<number;j++){
-      if(j==0) {
-        if(number!=1)flag_fix_big[j]=G+k-flag[j];
-        else flag_fix_big[j]=N;
-      }
-      else{
-        if(j==number-1) flag_fix_big[j]=N;
-        else flag_fix_big[j]=flag_fix_big[j-1]+G-flag[j];
-      }
+    flag_fix_big[0]=G+k-flag[0];
+    for(int j=1;j<number-1;j++){
+      flag_fix_big[j]=flag_fix_big[j-1]+G-flag[j];
+      
     }
-  
-   
+    flag_fix_big[number-1]=N;
+////////////////////////////////////////////////
+
+    memcpy(B,A,flag_fix[0]*sizeof(unsigned long));    //to make the branch miss lower 
     #pragma omp taskloop shared(flag,flag_fix,B,A) 
-    for (int j = 0; j<number; ++j) {
-    
-      if(j==0) {
-        memcpy(B,A,flag_fix[j]*sizeof(unsigned long));
-      }
-      else{
+    for (int j = 1; j<number; ++j) {
         memcpy(B+flag_fix[j-1],A+G*j,flag[j]*sizeof(unsigned long));
-      }
     }
-
-
-
-    //#pragma omp taskwait
-
-    #pragma omp taskloop shared(flag,flag_fix,flag_fix_big,B,A) ///change the array
     
-    for (int j = 0; j<number; ++j) {
-      if(j==0) {
-        memcpy(B+k,A+flag[j],(flag_fix_big[j]-k)*sizeof(unsigned long));
-      }
-      else{
-        if(j==number-1) memcpy(B+flag_fix_big[j-1],A+G*j+flag[j],(ss-flag[j])*sizeof(unsigned long));
-        else memcpy(B+flag_fix_big[j-1],A+G*j+flag[j],(G-flag[j])*sizeof(unsigned long));
-      }
+
+    memcpy(B+k,A+flag[0],(flag_fix_big[0]-k)*sizeof(unsigned long)); //to make the branch miss lower 
+    #pragma omp taskloop shared(flag,flag_fix,flag_fix_big,B,A) ///change the array
+    for (int j = 1; j<number; ++j) {
+      
+      if(j==number-1) memcpy(B+flag_fix_big[j-1],A+G*j+flag[j],(ss-flag[j])*sizeof(unsigned long));
+      else memcpy(B+flag_fix_big[j-1],A+G*j+flag[j],(G-flag[j])*sizeof(unsigned long));
+    
     }
-    //#pragma omp taskwait
-   // memcpy(A,B,N*sizeof(unsigned long));
+   
     
   
     #pragma omp taskloop shared(A,B)
-    for (int j = 0; j<number; ++j) {
-      if(j==number-1) memcpy(A+j*G,B+j*G,ss*sizeof(unsigned long));
-      else memcpy(A+j*G,B+j*G,G*sizeof(unsigned long));
+    for (int j = 0; j<number-1; ++j) {
+      
+     memcpy(A+j*G,B+j*G,G*sizeof(unsigned long));
     }
-   
-    
+    memcpy(A+(number-1)*G,B+(number-1)*G,ss*sizeof(unsigned long)); //to make the branch miss lower 
 
-    //free (B);
   }
   return k;
 }
@@ -154,10 +123,10 @@ void quickSort (int N, keytype* A,keytype* B)
     // Partition around the pivot. Upon completion, n_less, n_equal,
     // and n_greater should each be the number of keys less than,
     // equal to, or greater than the pivot, respectively. Moreover, the array
+    //cout<<"number"<<omp_get_thread_num()<<endl;
 
 
-
-    int n_le = partition_short (pivot, N, A);
+    int n_le = partition (pivot, N, A,B);
 
     #pragma omp task
     quickSort (n_le, A,B);

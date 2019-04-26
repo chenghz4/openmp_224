@@ -7,108 +7,108 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include "sort.hh"
+#include <omp.h>
+#include <math.h> 
+#include<string.h>
+#include<iostream>
+using namespace std;
+int number;
 
-
-
-
-// Conduct a binary search for x in T[p..r]
-// Return the index where x is found,
-// or return the index of the first number
-// in the range that is > x.
-int binary_search(int T[], int p, int r, int x)
+int binary_search(keytype* A, int N, keytype x)
 {
-  int a = p;
-  int b = r;
+  int a = 0;
+  int b = N;
   int c = (a + b) / 2;
-  while (a < b) {
-    if (T[c] == x)
-      return c;
-    if (T[c] < x)
-      a = c + 1;
-    else
-      b = c;
+  while (a <b) {
+    if (A[c] == x)  return c;
+    if (A[c] < x)  a = c + 1;
+    else    b = c;
     c = (a + b) / 2;
   }
-  if (T[c] > x)
-    return c;
-  else
-    return c + 1;
-}
 
-void merge(int T[], int p1, int r1, int p2, int r2, int A[], int q)
+  return c;
+}
+  
+
+void merge(keytype *A, int p1, int r1, int p2, int r2, keytype*B) //seqential merge
 {
   int a = p1;
   int b = p2;
-  int c = q;
+  int c = 0;
   while (a <= r1 && b <= r2) {
-    if (T[a] < T[b])
-      A[c++] = T[a++];
-    else
-      A[c++] = T[b++];
+    if (A[a] < A[b])  B[c++] = A[a++];
+    else   B[c++] = A[b++];
   }
   while (a <= r1) {
-    A[c++] = T[a++];
+    B[c++] = A[a++];
   }
   while (b <= r2) {
-    A[c++] = T[b++];
+    B[c++] = A[b++];
   }
 }
 
-void parallel_merge(int A[], int p, int q, int r)
+
+void parallel_merge(keytype *A, int s1,int r1, int s2, int r2,keytype*B) //[s1,r1],[s2,r2]
 {
-  int n = r - p + 1;
-  int* T = new int[n];
-  int i;
-#pragma omp parallel for shared(A,p,n,T) private(i)
-  for (i = 0; i < n; i++)
-    T[i] = A[i + p];
-
-  int p1 = 0;
-  int r1 = q - p;
-  int q1 = (p1 + r1) / 2;
-  int p2 = q - p + 1;
-  int r2 = r - p;
-  int q2 = binary_search(T, p2, r2, T[q1]);
-  int p3 = p;
-  int q3 = p3 + (q1 - p1) + (q2 - p2);
-  A[q3] = T[q1];
-#pragma omp parallel sections shared(A,p1,r1,q1,p2,r2,q2,p3,q3)
-  {
-#pragma omp section
-    merge(T, p1, q1 - 1, p2, q2 - 1, A, p3);
-#pragma omp section
-    merge(T, q1 + 1, r1, q2, r2, A, q3 + 1);
+  const int G = number/1000;
+  int num=r1-s1+1;
+  int num1=r2+r1-s1-s2;
+  if(num1<=G){
+  merge(A,s1,r1,s2,r2,B);
   }
+  else{
+  int temp=rand () % (num)+s1;
+  keytype pivot = A[temp];
+  int q2 = binary_search(A+s2, r2-s2+1, pivot)+s2;
 
-  delete[] T;
+  #pragma omp task
+  parallel_merge(A,s1,temp-1,s2,q2-1,B);
+  parallel_merge(A,temp,r1,q2,r2,B+temp-s1+q2-s2);
+  //merge(A,s1,temp-1,s2,q2-1,B);
+  //merge(A,temp,r1,q2,r2,B+temp-s1+q2-s2);
+  #pragma omp taskwait
+  }
 }
 
-void parallel_merge_sort(int A[], int p, int r, int level)
+
+
+
+
+
+
+bool parallel_merge_sort(keytype* A, keytype* B,int N)
 {
-  if (level > 4) // Revert to sequential after 4 levels
-    quicksort(A, p, r); // This limits the thread count
+  bool j;
+  const int G = 1024; /* base case size, a tuning parameter */
+  if (N <= G){
+    sequentialSort (N, A);
+    return false;
+  }
   else {
-    int q = (p + r) / 2;
-#pragma omp parallel sections shared(A,p,r,q)
-    {
-#pragma omp section
-      parallel_merge_sort(A, p, q, level + 1);
-#pragma omp section
-      parallel_merge_sort(A, q + 1, r, level + 1);
-    }
-    parallel_merge(A, p, q, r);
+    int index = floor((N-1)/2);
+   
+    #pragma omp task
+    parallel_merge_sort(A,B,index);
+    j=parallel_merge_sort(A+index,B+index,N-index);
+    #pragma omp taskwait
+    //merge(A,0,index-1,index,N-1,B);
+    //memcpy(A,B,N*sizeof(unsigned long));
+    //parallel_merge(A,0,index-1,index, N-1, B);
+    if(!j) parallel_merge(A,0,index-1,index, N-1, B);
+    else parallel_merge(B,0,index-1,index, N-1, A);
+    
+    return (!j);
+   
   }
 }
 
 
-
-
-
-void
-mySort (int N, keytype* A)
+void mySort (int N, keytype* A,keytype*B)
 {
+  number=N;
+  bool j=parallel_merge_sort(A,B,N);
+  if(j) memcpy(A,B,N*sizeof(unsigned long));
   /* Lucky you, you get to start from scratch */
 }
 /* eof */

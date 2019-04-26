@@ -67,17 +67,19 @@ main (int argc, char* argv[])
   /* Sort, calling YOUR routine. */
   keytype* A_ms = newCopy (N, A_in);
   stopwatch_start (timer);
- // cout<<omp_get_num_threads()<<endl;
   #pragma omp parallel
   #pragma omp single nowait
   mySort (N, A_ms,B);
- cout<<omp_get_num_threads()<<endl;
   long double t_ms = stopwatch_stop (timer);
   printf ("My sort: %Lg seconds ==> %Lg million keys per second\n",
 	  t_ms, 1e-6 * N / t_ms);
   assertIsSorted (N, A_ms);
   assertIsEqual (N, A_ms, A_qs);
-  
+
+
+
+
+
   /* Cleanup */
   printf ("\n");
   free (A_in);
