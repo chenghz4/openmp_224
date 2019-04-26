@@ -51,7 +51,7 @@ void merge(keytype *A, int p1, int r1, int p2, int r2, keytype*B) //seqential me
 
 void parallel_merge(keytype *A, int s1,int r1, int s2, int r2,keytype*B) //[s1,r1],[s2,r2]
 {
-  const int G = number/1000;
+  const int G = 10000;
   int num=r1-s1+1;
   int num1=r2+r1-s1-s2;
   if(num1<=G){
@@ -95,7 +95,7 @@ bool parallel_merge_sort(keytype* A, keytype* B,int N)
     //merge(A,0,index-1,index,N-1,B);
     //memcpy(A,B,N*sizeof(unsigned long));
     //parallel_merge(A,0,index-1,index, N-1, B);
-    if(!j) parallel_merge(A,0,index-1,index, N-1, B);
+    if(!j)parallel_merge(A,0,index-1,index, N-1, B);
     else parallel_merge(B,0,index-1,index, N-1, A);
     
     return (!j);
